@@ -5,6 +5,16 @@ Open an image, click one button, and the AI cuts out the subject. Then touch up 
 edges with a magic wand, colour remover and brushes, and download a transparent PNG
 at the **original resolution**.
 
+🚀 **[Try it live here](https://ikram001.github.io/aibgr/)**
+
+## Before & After
+
+| Before | After |
+|:---:|:---:|
+| ![Before background removal](screenshots/before.jpg) | ![After background removal](screenshots/after.png) |
+
+## 🔒 Privacy-first by design
+
 - **Nothing is uploaded.** No server, no account, no analytics. Your image never leaves the page.
 - **Nothing is re-encoded.** The original RGB bytes are kept as they are and only an alpha (transparency) channel is added, so quality is preserved.
 - **Fully self-hosted.** The AI model, the ONNX runtime and the font are all inside this repo. The page makes zero third-party requests.
