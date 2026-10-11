@@ -202,6 +202,79 @@
     .toast { transition:none; }
     .busy .spin { animation-duration:2.4s; }
   }
+  /* ═════════ Responsive / mobile ═════════ */
+  html { -webkit-text-size-adjust:100%; text-size-adjust:100%; }
+  button, select, input { touch-action:manipulation; -webkit-tap-highlight-color:transparent; }
+  .seg, .btn, .mode, .ai, .dl, .stage { -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .cols > *, .side > * { min-width:0; }
+  /* left:50% alone would cap a toast at half the screen width */
+  .toast { width:max-content; max-width:calc(100vw - 28px); text-align:center; }
+
+  /* tablets + phones: stacked layout, the page scrolls, the canvas stays pinned on top */
+  @media (max-width:920px) {
+    html { height:auto; min-height:100%; background-attachment:scroll; }
+    body { height:auto; padding:14px 14px 32px; gap:16px; }
+    .head p { font-size:11.5px; }
+    .cols { display:flex; flex-direction:column; flex:none; gap:20px; }
+    .side { overflow:visible; padding-right:0; gap:26px; }
+    .work { position:sticky; top:8px; z-index:6; padding:8px; box-shadow:0 10px 22px -8px rgba(0,0,0,.75); }
+    .stage { flex:none; min-height:200px; height:min(34vh,380px); height:min(34svh,380px); }
+  }
+  /* wide tablets: controls in two columns instead of one long strip */
+  @media (min-width:640px) and (max-width:920px) {
+    .side { display:grid; grid-template-columns:1fr 1fr; gap:26px 28px; align-items:start; }
+  }
+
+  /* touch screens: bigger targets, 16px fields (stops iOS zooming on focus), thumb-sized sliders */
+  @media (pointer:coarse) {
+    .seg { min-height:38px; padding:8px 12px; }
+    .btn { min-height:42px; }
+    .ai { min-height:54px; }
+    .dl { padding:15px 0; }
+    .mode { min-height:68px; justify-content:center; }
+    .mode kbd { display:none; }
+    .exrow select, .exrow input[type=text] { min-height:42px; font-size:16px; }
+    .exrow input[type=color] { width:46px; height:42px; }
+    .exrow .chk { min-height:36px; }
+    .exrow .chk input { width:20px; height:20px; }
+    input[type=range] { -webkit-appearance:none; appearance:none; background:transparent; height:32px; }
+    input[type=range]::-webkit-slider-runnable-track { height:4px; border-radius:4px; background:#2d2d2d; }
+    input[type=range]::-moz-range-track { height:4px; border-radius:4px; background:#2d2d2d; }
+    input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:24px; height:24px; margin-top:-10px; border-radius:50%; background:var(--accent); border:0; }
+    input[type=range]::-moz-range-thumb { width:24px; height:24px; border-radius:50%; background:var(--accent); border:0; }
+    .drop .inner { backdrop-filter:none; background:rgba(10,10,10,.85); }
+  }
+  /* keyboard shortcuts mean nothing on a phone */
+  @media (hover:none) and (pointer:coarse) { .card:has(.keys) { display:none; } }
+
+  /* phones */
+  @media (max-width:560px) {
+    body { padding:10px 10px 28px; gap:12px; }
+    .head h1 { font-size:13.5px; }
+    .head p { font-size:11px; }
+    .side { gap:24px; }
+    .ainote, .sub { font-size:11.5px; }
+    .bar { gap:5px; padding-bottom:8px; }
+    .seg { padding:6px 8px; font-size:11px; min-height:36px; }
+    .zval { min-width:38px; }
+    .dims { padding:4px 7px; font-size:10.5px; }
+    .stat { padding:4px 2px; font-size:10.5px; }
+    .drop { padding:10px; }
+    .drop .inner { padding:26px 16px; font-size:12.5px; }
+    .drop small { font-size:11px; }
+    .toast { bottom:18px; }
+  }
+
+  /* phones/tablets on their side: not enough height to stack, so keep controls beside the canvas */
+  @media (max-width:920px) and (orientation:landscape) and (max-height:540px) {
+    html, body { height:100%; }
+    body { padding:8px 12px; gap:8px; }
+    .head p { display:none; }
+    .cols { display:grid; grid-template-columns:272px minmax(0,1fr); gap:14px; flex:1; min-height:0; }
+    .side { display:flex; order:0; overflow-y:auto; padding-right:6px; gap:22px; }
+    .work { position:static; box-shadow:none; }
+    .stage { flex:1; height:auto; min-height:0; }
+  }
 </style>
 </head>
 <body>
