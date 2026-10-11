@@ -32,7 +32,7 @@ It is a static site: plain HTML, CSS and JavaScript. There is no build step and 
 **Removing the background**
 - **AI cutout** (`A`): finds the subject automatically using the small U²-Net-P model (4.5 MB), running locally via WebAssembly
 - **Sharpen edges after cutout** (on by default): re-fits the AI matte to the photo's real edges with a guided filter, which removes the soft halo a small model leaves around hair and fur. Costs well under a second, even on large photos
-- **Optional high-quality mode:** a bigger model (IS-Net, 46 MB) with noticeably cleaner edges. It is *not* included or downloaded by default; see [Optional: high quality model](#optional-high-quality-model)
+- **Optional high-quality mode:** a bigger model (IS-Net, 46 MB) with noticeably cleaner edges. It is *not* included or downloaded by default; see [Optional: high quality model](https://huggingface.co/xrds/isnet-general-onnx-int8)
 - **Magic wand** (`W`): click a region to remove all connected pixels of a similar colour
 - **Remove color** (`C`): click a colour to remove it everywhere in the image
 - **Erase** (`E`) and **Restore** (`R`): paint transparency in or out by hand

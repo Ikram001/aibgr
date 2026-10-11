@@ -767,6 +767,7 @@ function strokeTo(x, y, value) {
 let painting = false, panning = false, lastPt = null, panFrom = null;
 vp.addEventListener("pointerdown", (ev) => {
   if (!orig) return;
+  if (ev.pointerType === "touch") return touchDown(ev);
   vp.setPointerCapture(ev.pointerId);
   const css = [ev.offsetX, ev.offsetY];
   if (spaceHeld || ev.button === 1) {
@@ -786,6 +787,7 @@ vp.addEventListener("pointerdown", (ev) => {
   strokeTo(x, y, mode === "erase" ? 0 : 255);
 });
 vp.addEventListener("pointermove", (ev) => {
+  if (ev.pointerType === "touch") return touchMove(ev);
   drawRing(ev.offsetX, ev.offsetY);
   if (panning) {
     view.tx = ev.offsetX - panFrom[0];
@@ -806,9 +808,118 @@ function endStroke() {
   }
   panning = false;
 }
-vp.addEventListener("pointerup", endStroke);
-vp.addEventListener("pointercancel", endStroke);
+vp.addEventListener("pointerup", (ev) => (ev.pointerType === "touch" ? touchUp(ev, false) : endStroke()));
+vp.addEventListener("pointercancel", (ev) => (ev.pointerType === "touch" ? touchUp(ev, true) : endStroke()));
 vp.addEventListener("pointerleave", () => rctx.clearRect(0, 0, ring.width, ring.height));
+
+// ── touch: two fingers pan + pinch-zoom; one finger uses the tool ──
+// Wand / Remove color: a tap applies the tool, dragging pans. Erase / Restore: one finger
+// paints. A second finger landing right after the first means the person meant to pan or
+// zoom, so any stroke the first finger had begun is rolled back.
+const touches = new Map();      // pointerId -> { x, y, sx, sy }  (css px inside the canvas)
+let gesture = null;             // active two-finger pan/zoom
+let tapTool = null;             // pointerId of a wand/colour tap that may still become a drag
+let touchPan = null;            // one-finger pan { id, fx, fy }
+let touchStroke = null;         // brush stroke begun by a finger { id, t0, redo }
+const TAP_SLOP = 8;             // css px a finger may wander and still count as a tap
+const STROKE_GRACE = 350;       // ms: a 2nd finger within this window cancels the 1st finger's stroke
+
+const touchPos = (ev) => { const r = vp.getBoundingClientRect(); return [ev.clientX - r.left, ev.clientY - r.top]; };
+
+function startGesture() {
+  const [a, b] = [...touches.values()];
+  gesture = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2, s: view.scale, tx: view.tx, ty: view.ty };
+  rctx.clearRect(0, 0, ring.width, ring.height);
+}
+function updateGesture() {
+  const [a, b] = [...touches.values()];
+  const d = Math.hypot(a.x - b.x, a.y - b.y) || 1, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  const sc = Math.min(32, Math.max(0.02, (gesture.s * d) / gesture.d));
+  // keep the image point that started under the fingers' midpoint under their current midpoint
+  const ix = (gesture.mx - gesture.tx) / gesture.s, iy = (gesture.my - gesture.ty) / gesture.s;
+  view.scale = sc; view.tx = mx - ix * sc; view.ty = my - iy * sc;
+  needsDraw = true;
+}
+function cancelStroke() {
+  painting = false;
+  if (undoStack.length) {
+    mask = unpackMask(undoStack.pop());
+    redoStack.length = 0; redoStack.push(...touchStroke.redo);
+    syncHistBtns();
+    compositeAll(strokeBox || undefined);
+  }
+  strokeBox = null; paintDirty = null; touchStroke = null;
+}
+
+function touchDown(ev) {
+  if (touches.size >= 2) return;
+  const [x, y] = touchPos(ev);
+  if (touches.size === 1) {                                   // a second finger
+    if (touchStroke && performance.now() - touchStroke.t0 > STROKE_GRACE) return;   // mid-stroke: ignore stray touches
+    if (touchStroke) cancelStroke();
+    tapTool = null; touchPan = null;
+    vp.setPointerCapture(ev.pointerId);
+    touches.set(ev.pointerId, { x, y, sx: x, sy: y });
+    startGesture();
+    return;
+  }
+  vp.setPointerCapture(ev.pointerId);
+  touches.set(ev.pointerId, { x, y, sx: x, sy: y });
+  if (mode === "wand" || mode === "color") { tapTool = ev.pointerId; return; }
+  const [ix, iy] = toImage(x, y);
+  if (ix < 0 || iy < 0 || ix >= W || iy >= H) { touchPan = { id: ev.pointerId, fx: x - view.tx, fy: y - view.ty }; return; }
+  painting = true; lastPt = null; strokeBox = null;
+  touchStroke = { id: ev.pointerId, t0: performance.now(), redo: redoStack.slice() };
+  snapshot();
+  strokeTo(ix, iy, mode === "erase" ? 0 : 255);
+}
+
+function touchMove(ev) {
+  const t = touches.get(ev.pointerId);
+  if (!t) return;
+  [t.x, t.y] = touchPos(ev);
+  if (gesture) { updateGesture(); return; }
+  if (touchStroke && touchStroke.id === ev.pointerId) {
+    drawRing(t.x, t.y);
+    const [x, y] = toImage(t.x, t.y);
+    strokeTo(Math.min(W - 1, Math.max(0, x)), Math.min(H - 1, Math.max(0, y)), mode === "erase" ? 0 : 255);
+    return;
+  }
+  if (tapTool === ev.pointerId && Math.hypot(t.x - t.sx, t.y - t.sy) > TAP_SLOP) {   // a drag, not a tap: pan
+    tapTool = null;
+    touchPan = { id: ev.pointerId, fx: t.sx - view.tx, fy: t.sy - view.ty };
+  }
+  if (touchPan && touchPan.id === ev.pointerId) {
+    view.tx = t.x - touchPan.fx; view.ty = t.y - touchPan.fy;
+    needsDraw = true;
+  }
+}
+
+function touchUp(ev, cancelled) {
+  const t = touches.get(ev.pointerId);
+  if (!t) return;
+  touches.delete(ev.pointerId);
+  rctx.clearRect(0, 0, ring.width, ring.height);
+  if (gesture) {
+    gesture = null;
+    if (touches.size === 1) {                                 // one finger left: carry on as a pan
+      const [id, r] = [...touches.entries()][0];
+      touchPan = { id, fx: r.x - view.tx, fy: r.y - view.ty };
+    }
+    return;
+  }
+  if (touchStroke && touchStroke.id === ev.pointerId) { touchStroke = null; endStroke(); return; }
+  if (tapTool === ev.pointerId) {
+    tapTool = null;
+    if (!cancelled && Math.hypot(t.x - t.sx, t.y - t.sy) <= TAP_SLOP) {
+      const [x, y] = toImage(t.sx, t.sy);
+      if (x >= 0 && y >= 0 && x < W && y < H) { if (mode === "wand") wand(x, y); else removeColor(x, y); }
+    }
+  }
+  if (touchPan && touchPan.id === ev.pointerId) touchPan = null;
+}
+// a long press must not pop the browser's image menu mid-stroke
+vp.addEventListener("contextmenu", (e) => { if (touches.size || matchMedia("(pointer:coarse)").matches) e.preventDefault(); });
 
 vp.addEventListener("wheel", (ev) => {
   if (!orig) return;
