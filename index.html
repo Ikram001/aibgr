@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ai Background Remover - Ikram Niz</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='14'%20fill='%230a0a0a'/%3E%3Crect%20x='1.5'%20y='1.5'%20width='61'%20height='61'%20rx='13'%20fill='none'%20stroke='%23333'%20stroke-width='3'/%3E%3Ctext%20x='32'%20y='43'%20font-family='ui-monospace,Menlo,Consolas,monospace'%20font-size='30'%20font-weight='700'%20fill='%23f2f2f2'%20text-anchor='middle'%3EAi%3C/text%3E%3C/svg%3E">
+<style>
+  @font-face { font-family:"JetBrains Mono"; font-style:normal; font-weight:400; font-display:swap; src:url("vendor/fonts/jetbrains-mono-latin-400-normal.woff2") format("woff2"); }
+  @font-face { font-family:"JetBrains Mono"; font-style:normal; font-weight:500; font-display:swap; src:url("vendor/fonts/jetbrains-mono-latin-500-normal.woff2") format("woff2"); }
+  @font-face { font-family:"JetBrains Mono"; font-style:normal; font-weight:700; font-display:swap; src:url("vendor/fonts/jetbrains-mono-latin-700-normal.woff2") format("woff2"); }
+  @font-face { font-family:"JetBrains Mono"; font-style:italic; font-weight:700; font-display:swap; src:url("vendor/fonts/jetbrains-mono-latin-700-italic.woff2") format("woff2"); }
+  :root {
+    --bg:#0a0a0a; --card:#101010; --card2:#1a1a1a; --inner:#0d0d0d; --line:#232323;
+    --accent:#ededed; --accent2:#ffffff;
+    --green:#73bf69; --red:#f2495c; --amber:#ff9830; --violet:#a78bfa;
+    --text:#9d9d9d; --strong:#f2f2f2; --muted:#8a8a8a; --faint:#767676;
+    --mono:"JetBrains Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  ::selection { background:#3a3a3a; color:#fff; }
+  :focus-visible { outline:1.5px solid #cfcfcf; outline-offset:2px; }
+  html {
+    height:100%; color-scheme:dark; background-color:var(--bg);
+    background-image:radial-gradient(circle,#2b2b2b 1px,transparent 1.2px);
+    background-size:22px 22px; background-attachment:fixed;
+    scrollbar-width:thin; scrollbar-color:#2a2a2a transparent;
+  }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#262626; border-radius:8px; }
+  body {
+    height:100%; max-width:1120px; margin:0 auto; color:var(--text);
+    font-family:var(--mono); font-size:13px; line-height:1.5; -webkit-font-smoothing:antialiased;
+    padding:22px 20px 24px; display:flex; flex-direction:column; gap:22px;
+  }
+  button, input, select { font:inherit; color:inherit; }
+  button { border:0; cursor:pointer; background:transparent; }
+
+  /* header */
+  .head { display:flex; align-items:baseline; flex-wrap:wrap; gap:4px 14px; flex:none; }
+  .head .mark { width:26px; height:26px; border-radius:8px; overflow:hidden; }
+  .head .mark img { width:100%; height:100%; object-fit:cover; display:block; }
+  .head h1 { font-size:14px; font-weight:700; color:var(--strong); }
+  .head h1::before { content:"\25C6"; color:#5a5a5a; font-weight:400; margin-right:10px; }
+  .head p { color:var(--faint); font-size:12px; }
+
+  .cols { display:grid; grid-template-columns:316px minmax(0,1fr); gap:28px; flex:1; min-height:0; }
+  @media (max-width:920px) { .cols { grid-template-columns:1fr; } .side { order:2; } }
+  @media (max-width:560px) { body { padding:16px 12px 18px; } }
+  .side { display:flex; flex-direction:column; gap:28px; overflow-y:auto; min-height:0; padding-right:8px; }
+  .card { flex:none; }
+  .card h2 {
+    font-size:13px; font-style:italic; font-weight:700; text-transform:lowercase; color:var(--strong);
+    margin-bottom:12px; display:flex; align-items:center; gap:0;
+  }
+  .card h2::after { content:":"; }
+  .card h2 .d { display:none; }
+
+  /* AI hero */
+  .ai {
+    width:100%; padding:16px 0; border-radius:12px; font-size:13px; font-weight:500; color:var(--muted);
+    background:var(--card); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; gap:10px;
+  }
+  .ai:hover:not(:disabled) { border-color:#3a3a3a; color:var(--strong); }
+  .ai:disabled { opacity:.45; cursor:not-allowed; }
+  .ai svg { flex:none; }
+  .ainote { font-size:11px; color:var(--faint); margin-top:10px; line-height:1.65; }
+
+  /* tools */
+  .modes { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mode {
+    position:relative; background:transparent; border-radius:10px; padding:13px 6px 10px;
+    display:flex; flex-direction:column; align-items:center; gap:6px; border:1px solid var(--line);
+  }
+  .mode:hover { background:var(--card); border-color:#333; }
+  .mode.on { border-color:#d4d4d4; background:#151515; }
+  .mode svg { stroke:var(--muted); }
+  .mode.on svg { stroke:var(--strong); }
+  .mode span { font-size:11px; font-weight:500; color:var(--muted); }
+  .mode.on span { color:var(--strong); }
+  .mode kbd { position:absolute; top:5px; right:8px; font-size:9.5px; color:var(--faint); font-family:var(--mono); font-weight:700; }
+
+  .sl { display:flex; align-items:center; gap:8px; margin-top:10px; }
+  .sl label { font-size:11.5px; color:var(--muted); width:116px; flex:none; }
+  .sl label::before { content:"\21B3\00a0"; color:#555; }
+  .sl input[type=range] { flex:1; accent-color:var(--accent); min-width:0; }
+  .sl .v { font-family:var(--mono); font-size:11px; color:var(--faint); width:28px; text-align:right; }
+
+  .btnrow { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .btn {
+    padding:9px 0; border-radius:9px; font-size:11.5px; font-weight:500; text-align:center;
+    background:transparent; color:var(--muted); border:1px solid var(--line);
+  }
+  .btn:hover:not(:disabled) { color:var(--strong); border-color:#3a3a3a; }
+  .btn:disabled { opacity:.35; cursor:not-allowed; }
+  .btn.wide { grid-column:1 / -1; }
+
+  /* export */
+  .exrow { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .exrow > label { font-size:11.5px; color:var(--muted); width:88px; flex:none; }
+  .exrow > label:not(.chk):not(:empty)::before { content:"\21B3\00a0"; color:#555; }
+  .exrow select, .exrow input[type=text] {
+    flex:1; background:var(--inner); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; font-size:12px; min-width:0;
+  }
+  .exrow[hidden] { display:none; }
+  .aiopts { margin-top:12px; }
+  .aiopts .exrow:last-child { margin-bottom:0; }
+  .exrow select:focus, .exrow input:focus { outline:none; border-color:#666; }
+  .exrow input[type=color] { width:34px; height:32px; border:1px solid var(--line); border-radius:8px; background:var(--inner); padding:2px; cursor:pointer; flex:none; }
+  .exrow > label.chk { width:auto; flex:1; white-space:nowrap; }
+  .exrow .chk { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--muted); cursor:pointer; }
+  .exrow .chk input { accent-color:var(--accent); }
+  .dl {
+    width:100%; padding:13px 0; border-radius:11px; margin-top:4px;
+    background:var(--strong); color:#0a0a0a; font-size:13px; font-weight:700;
+  }
+  .dl:hover:not(:disabled) { background:#fff; }
+  .dl:disabled { opacity:.35; cursor:not-allowed; }
+  .sub { font-size:11px; color:var(--faint); margin-top:10px; line-height:1.65; }
+  .sub b { color:var(--strong); font-weight:700; }
+
+  .keys { font-size:11px; color:var(--faint); line-height:2.1; }
+  .keys kbd {
+    font-family:var(--mono); font-size:10px; background:var(--card); border:1px solid var(--line);
+    border-radius:5px; padding:1px 6px; color:var(--muted);
+  }
+
+  /* stage */
+  .work { display:flex; flex-direction:column; min-height:0; background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px; }
+  .bar { display:flex; align-items:center; gap:6px; flex-wrap:wrap; padding:0 2px 10px; }
+  .seg {
+    padding:6px 11px; border-radius:8px; background:transparent; color:var(--muted);
+    font-size:11.5px; font-weight:500; border:1px solid var(--line);
+  }
+  .seg:hover { color:var(--strong); border-color:#3a3a3a; }
+  .seg.on { background:var(--strong); color:#0a0a0a; border-color:var(--strong); }
+  .seg.hold:active { background:var(--strong); color:#0a0a0a; border-color:var(--strong); }
+  .zval { font-family:var(--mono); font-size:11px; color:var(--muted); min-width:46px; text-align:center; }
+  .dims { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted);
+    border:1px solid var(--line); padding:5px 10px; border-radius:8px; }
+  .stat { font-family:var(--mono); font-size:11px; color:var(--faint); padding:5px 4px; }
+
+  .stage {
+    position:relative; flex:1; min-height:380px; border-radius:9px; overflow:hidden;
+    background-color:#0d0d0d;
+    background-image:
+      linear-gradient(45deg,#171717 25%,transparent 25%,transparent 75%,#171717 75%),
+      linear-gradient(45deg,#171717 25%,transparent 25%,transparent 75%,#171717 75%);
+    background-size:18px 18px; background-position:0 0,9px 9px;
+    touch-action:none;
+  }
+  .stage.light {
+    background-color:#e4e4e4;
+    background-image:
+      linear-gradient(45deg,#cfcfcf 25%,transparent 25%,transparent 75%,#cfcfcf 75%),
+      linear-gradient(45deg,#cfcfcf 25%,transparent 25%,transparent 75%,#cfcfcf 75%);
+  }
+  .stage.solid { background-image:none; }
+  #vp, #ring { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  #ring { pointer-events:none; }
+  #vp { cursor:crosshair; }
+  #vp.panning { cursor:grab; }
+  #vp.panning:active { cursor:grabbing; }
+
+  .drop { position:absolute; inset:0; display:grid; place-items:center; z-index:3; }
+  /* display:grid above would defeat the hidden attribute's display:none -
+     the overlay must actually leave once an image is loaded */
+  .drop[hidden] { display:none; }
+  .drop .inner {
+    border:1.5px dashed #2e2e2e; border-radius:12px; padding:52px 40px; text-align:center;
+    color:var(--muted); font-size:13px; line-height:1.7; cursor:pointer; background:rgba(10,10,10,.7); backdrop-filter:blur(2px);
+  }
+  .drop .inner:hover, .drop.hover .inner { border-color:#6a6a6a; color:var(--strong); }
+  .drop b { color:var(--strong); }
+  .drop small { display:block; margin-top:9px; color:var(--faint); font-size:11.5px; }
+  .drop svg { display:block; margin:0 auto 14px; stroke:var(--faint); }
+
+  .busy {
+    position:absolute; inset:0; z-index:5; display:none; place-items:center;
+    background:rgba(10,10,10,.88); border-radius:9px;   /* no backdrop-filter: it starves inference of CPU */
+  }
+  .busy.show { display:grid; }
+  .busy .box { text-align:center; }
+  .busy .spin {
+    width:30px; height:30px; margin:0 auto 12px; border-radius:50%;
+    border:2px solid #2a2a2a; border-top-color:var(--strong); animation:sp .8s linear infinite;
+  }
+  @keyframes sp { to { transform:rotate(360deg); } }
+  .busy .txt { font-size:12.5px; font-weight:700; color:var(--strong); }
+  .busy .pct { font-family:var(--mono); font-size:11.5px; color:var(--faint); margin-top:5px; }
+
+  .toast {
+    position:fixed; left:50%; bottom:24px; transform:translate(-50%,14px); z-index:20;
+    background:#141414; border:1px solid #2c2c2c; color:var(--strong);
+    padding:10px 18px; border-radius:10px; font-size:12px; font-weight:500;
+    opacity:0; pointer-events:none; transition:opacity .18s, transform .18s;
+  }
+  .toast.show { opacity:1; transform:translate(-50%,0); }
+  @media (prefers-reduced-motion:reduce) {
+    .toast { transition:none; }
+    .busy .spin { animation-duration:2.4s; }
+  }
+</style>
+</head>
+<body>
+<div class="head">
+  <h1>Background Remover</h1>
+  <p>Everything runs in your browser - nothing uploads, nothing shrinks, surviving pixels stay byte-identical.</p>
+</div>
+
+<div class="cols">
+  <div class="side">
+    <div class="card">
+      <button class="ai" id="aiBtn" disabled>
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3.2"/></svg>
+        AI cutout - one click
+      </button>
+      <div class="aiopts">
+        <div class="exrow" id="aiQRow" hidden><label for="aiQuality">Quality</label>
+          <select id="aiQuality">
+            <option value="fast" selected>Fast - 4.5 MB</option>
+            <option value="hq">High quality - 46 MB, slower</option>
+          </select>
+        </div>
+        <div class="exrow"><label class="chk"><input type="checkbox" id="aiRefine" checked> Sharpen edges after cutout</label></div>
+      </div>
+      <div class="ainote">Finds the subject and erases the background automatically. The model (~4.5&nbsp;MB, downloaded once) runs <b style="color:var(--muted)">locally in your browser</b> - the image still never leaves this page. Touch up with the brushes after.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="d"></span>Tools</h2>
+      <div class="modes">
+        <button class="mode on" data-mode="wand" aria-pressed="true" title="Click a region - removes connected pixels of similar color">
+          <kbd>W</kbd>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5L7 22l-5-5z"/><path d="m13 6 5 5"/><path d="M21 2l-1.5 1.5M18 1l.5 2M23 6l-2-.5"/></svg>
+          <span>Magic wand</span></button>
+        <button class="mode" data-mode="color" aria-pressed="false" title="Click a color - removes it everywhere in the image">
+          <kbd>C</kbd>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18"/></svg>
+          <span>Remove color</span></button>
+        <button class="mode" data-mode="erase" aria-pressed="false" title="Paint transparency by hand">
+          <kbd>E</kbd>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H8L2 14 12 4l8 8-6 6"/><path d="m8 10 6 6"/></svg>
+          <span>Erase</span></button>
+        <button class="mode" data-mode="restore" aria-pressed="false" title="Paint the original back in">
+          <kbd>R</kbd>
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+          <span>Restore</span></button>
+      </div>
+      <div class="sl"><label for="tol">Tolerance</label><input type="range" id="tol" min="0" max="120" value="28"><span class="v" id="tolV">28</span></div>
+      <div class="sl"><label for="brush">Brush size</label><input type="range" id="brush" min="3" max="200" value="30"><span class="v" id="brushV">30</span></div>
+    </div>
+
+    <div class="card">
+      <h2><span class="d" style="background:var(--amber)"></span>Edges</h2>
+      <div class="sl"><label for="feather">Soften</label><input type="range" id="feather" min="0" max="12" value="1"><span class="v" id="featherV">1</span></div>
+      <div class="sl"><label for="morph">Shrink · grow</label><input type="range" id="morph" min="-10" max="10" value="0"><span class="v" id="morphV">0</span></div>
+      <div class="sub">Both are live and non-destructive - they shape the cutout edge at render and export time, never the pixels underneath.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="d" style="background:var(--green)"></span>Export</h2>
+      <div class="exrow"><label for="fmt">Format</label>
+        <select id="fmt">
+          <option value="png" selected>PNG - lossless</option>
+          <option value="webp">WebP - smaller file</option>
+          <option value="jpeg">JPG - needs a background</option>
+        </select>
+      </div>
+      <div class="exrow"><label for="bgSel">Background</label>
+        <select id="bgSel">
+          <option value="transparent" selected>Transparent</option>
+          <option value="color">Solid color</option>
+        </select>
+        <input type="color" id="bgColor" value="#00ff00" hidden>
+      </div>
+      <div class="exrow"><label></label>
+        <label class="chk"><input type="checkbox" id="trim"> Trim to content</label>
+      </div>
+      <div class="btnrow" style="margin-bottom:8px">
+        <button class="btn" id="undo" disabled>Undo</button>
+        <button class="btn" id="redo" disabled>Redo</button>
+        <button class="btn" id="reset" disabled>Reset</button>
+      </div>
+      <div class="btnrow">
+        <button class="btn wide" id="copy" disabled>Copy to clipboard</button>
+      </div>
+      <button class="dl" id="dl" disabled>Download</button>
+      <div class="sub" id="stats">No image loaded.</div>
+    </div>
+
+    <div class="card">
+      <h2><span class="d" style="background:var(--faint)"></span>Shortcuts</h2>
+      <div class="keys">
+        <kbd>W</kbd> <kbd>C</kbd> <kbd>E</kbd> <kbd>R</kbd> tools &nbsp; <kbd>A</kbd> AI cutout<br>
+        <kbd>[</kbd> <kbd>]</kbd> brush size &nbsp; <kbd>Ctrl+Z</kbd> / <kbd>Ctrl+Y</kbd> undo / redo<br>
+        <kbd>Space</kbd> drag to pan &nbsp; <kbd>scroll</kbd> zoom &nbsp; <kbd>F</kbd> fit &nbsp; <kbd>1</kbd> 100%<br>
+        <kbd>X</kbd> hold to compare with the original
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="d" style="background:var(--violet)"></span>Why quality survives</h2>
+      <div class="sub">
+        The download is the <b>original resolution</b> with an alpha channel added - RGB
+        bytes are copied from the source untouched, never re-encoded from a preview.
+        The AI model runs via WebAssembly on your machine (U&#8209;2&#8209;Net, Apache&#8209;2.0);
+        no image data ever leaves the page. For webcams use OBS's chroma key - this is for images.
+      </div>
+    </div>
+  </div>
+
+  <div class="work">
+    <div class="bar">
+      <button class="seg" id="zOut" title="Zoom out">−</button>
+      <span class="zval" id="zVal">-</span>
+      <button class="seg" id="zIn" title="Zoom in">+</button>
+      <button class="seg" id="zFit" title="Fit (F)">Fit</button>
+      <button class="seg" id="z100" title="Actual pixels (1)">100%</button>
+      <button class="seg" id="bgTog" title="Preview backdrop">Light</button>
+      <button class="seg hold" id="cmp" title="Hold to see the original (X)">Compare</button>
+      <button class="seg" id="pick">Open image…</button>
+      <span class="stat" id="pxStat"></span>
+      <span class="dims" id="dims">-</span>
+    </div>
+    <div class="stage" id="stage">
+      <canvas id="vp" aria-label="Image canvas - use the selected tool to remove or restore areas"></canvas>
+      <canvas id="ring"></canvas>
+      <div class="drop" id="drop">
+        <div class="inner">
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 15.5 8 11l4.5 4L15 13l6 5"/><circle cx="8.6" cy="7.6" r="1.4"/></svg>
+          <b>Drop an image here</b>, click to browse, or paste with Ctrl+V
+          <small>PNG · JPG · WebP - processed locally, never uploaded</small>
+        </div>
+      </div>
+      <div class="busy" id="busy">
+        <div class="box">
+          <div class="spin"></div>
+          <div class="txt" id="busyTxt">Working…</div>
+          <div class="pct" id="busyPct"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<input type="file" id="file" accept="image/*" hidden>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+function toast(m) {
+  const t = $("toast"); t.textContent = m; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 1900);
+}
+
+// ── state ──────────────────────────────────────────────────
+let W = 0, H = 0;
+let orig = null;              // original ImageData - never modified
+let mask = null;              // Uint8ClampedArray, hard alpha per pixel (AI can write soft values)
+let baseName = "image";
+let mode = "wand";
+const undoStack = [], redoStack = [];  // RLE-compressed mask snapshots
+const HIST_MAX = 30;
+const HIST_BYTES = 160 * 1024 * 1024;   // total undo memory budget
+
+const comp = document.createElement("canvas");           // full-res composite
+const cctx = comp.getContext("2d", { willReadFrequently: true });
+const vp = $("vp"), vctx = vp.getContext("2d");
+const ring = $("ring"), rctx = ring.getContext("2d");
+const stage = $("stage");
+
+// viewport transform: image px -> css px is  (x * scale + tx, y * scale + ty)
+const view = { scale: 1, tx: 0, ty: 0 };
+let compareHeld = false;
+let spaceHeld = false;
+
+// ── mask pipeline (non-destructive edge controls) ──────────
+function blurMask(src, radius, w = W, h = H) {
+  const tmp = new Float32Array(w * h);
+  const out = new Uint8ClampedArray(w * h);
+  const div = radius * 2 + 1;
+  for (let y = 0; y < h; y++) {
+    let acc = 0;
+    const row = y * w;
+    for (let x = -radius; x <= radius; x++) acc += src[row + Math.min(w - 1, Math.max(0, x))];
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = acc / div;
+      const add = Math.min(w - 1, x + radius + 1), rem = Math.max(0, x - radius);
+      acc += src[row + add] - src[row + rem];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let acc = 0;
+    for (let y = -radius; y <= radius; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = acc / div;
+      const add = Math.min(h - 1, y + radius + 1), rem = Math.max(0, y - radius);
+      acc += tmp[add * w + x] - tmp[rem * w + x];
+    }
+  }
+  return out;
+}
+
+// grow (k>0) or shrink (k<0) the cutout by ~|k| px: blur then threshold
+function morphMask(src, k, w = W, h = H) {
+  const b = blurMask(src, Math.abs(k), w, h);
+  const out = new Uint8ClampedArray(w * h);
+  if (k > 0) { for (let i = 0; i < b.length; i++) out[i] = b[i] > 16 ? 255 : 0; }
+  else { for (let i = 0; i < b.length; i++) out[i] = b[i] < 239 ? 0 : 255; }
+  return out;
+}
+
+// applies the live edge controls (shrink/grow, then soften) to a w x h mask
+function shapeMask(m, w, h) {
+  const k = Number($("morph").value);
+  if (k) m = morphMask(m, k, w, h);
+  const r = Number($("feather").value);
+  if (r) {
+    const hard = m;
+    m = blurMask(m, r, w, h);
+    // feathering must not eat solid interiors nor resurrect wide erased areas
+    for (let i = 0; i < m.length; i++) {
+      if (hard[i] === 255 && m[i] > 250) m[i] = 255;
+      if (hard[i] === 0 && m[i] < 5) m[i] = 0;
+    }
+  }
+  return m;
+}
+
+// ── compositing ────────────────────────────────────────────
+// comp = original RGB (byte-for-byte) + current alpha. Full rebuild by default;
+// pass a changed box [x0,y0,x1,y1] to rebuild only what that change can affect
+// (the box grown by the edge-filter reach) - much faster on large images.
+function compositeAll(box) {
+  let x0 = 0, y0 = 0, x1 = W - 1, y1 = H - 1;   // pixels rewritten
+  let cx0 = 0, cy0 = 0, cw = W, ch = H;         // pixels the edge filters read
+  if (box) {
+    const pad = Math.abs(Number($("morph").value)) + Number($("feather").value);
+    x0 = Math.max(0, box[0] - pad); y0 = Math.max(0, box[1] - pad);
+    x1 = Math.min(W - 1, box[2] + pad); y1 = Math.min(H - 1, box[3] + pad);
+    cx0 = Math.max(0, x0 - pad); cy0 = Math.max(0, y0 - pad);
+    cw = Math.min(W - 1, x1 + pad) - cx0 + 1; ch = Math.min(H - 1, y1 + pad) - cy0 + 1;
+  }
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  if (w <= 0 || h <= 0) return;
+  let src = mask;
+  if (cw !== W || ch !== H) {
+    src = new Uint8ClampedArray(cw * ch);
+    for (let y = 0; y < ch; y++) {
+      const s0 = (cy0 + y) * W + cx0;
+      src.set(mask.subarray(s0, s0 + cw), y * cw);
+    }
+  }
+  const m = shapeMask(src, cw, ch);
+  const out = cctx.createImageData(w, h);
+  const o = orig.data, d = out.data;
+  for (let y = 0; y < h; y++) {
+    let di = y * w * 4;
+    let si = (y0 + y) * W + x0;
+    let mi = (y0 - cy0 + y) * cw + (x0 - cx0);
+    for (let x = 0; x < w; x++, di += 4, si++, mi++) {
+      const p = si * 4;
+      d[di] = o[p]; d[di + 1] = o[p + 1]; d[di + 2] = o[p + 2];
+      d[di + 3] = Math.min(o[p + 3], m[mi]);
+    }
+  }
+  cctx.putImageData(out, x0, y0);
+  paintDirty = null;
+  needsDraw = true;
+}
+
+// hard-mask-only rebuild of a rect (used mid-stroke; edge sliders reapply on release)
+function compositeRect(x0, y0, x1, y1) {
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+  x1 = Math.min(W - 1, x1); y1 = Math.min(H - 1, y1);
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  if (w <= 0 || h <= 0) return;
+  const out = cctx.createImageData(w, h);
+  const o = orig.data, d = out.data;
+  for (let y = 0; y < h; y++) {
+    let di = y * w * 4;
+    let si = ((y0 + y) * W + x0);
+    for (let x = 0; x < w; x++, di += 4, si++) {
+      const p = si * 4;
+      d[di] = o[p]; d[di + 1] = o[p + 1]; d[di + 2] = o[p + 2];
+      d[di + 3] = Math.min(o[p + 3], mask[si]);
+    }
+  }
+  cctx.putImageData(out, x0, y0);
+  needsDraw = true;
+}
+
+// ── viewport drawing ───────────────────────────────────────
+let needsDraw = false;
+let origBitmap = null; // for compare
+function sizeViewport() {
+  const dpr = window.devicePixelRatio || 1;
+  const r = stage.getBoundingClientRect();
+  for (const c of [vp, ring]) {
+    if (c.width !== Math.round(r.width * dpr) || c.height !== Math.round(r.height * dpr)) {
+      c.width = Math.round(r.width * dpr);
+      c.height = Math.round(r.height * dpr);
+    }
+  }
+  needsDraw = true;
+}
+
+function draw() {
+  requestAnimationFrame(draw);
+  if (!needsDraw) return;
+  needsDraw = false;
+  const dpr = window.devicePixelRatio || 1;
+  vctx.setTransform(1, 0, 0, 1, 0, 0);
+  vctx.clearRect(0, 0, vp.width, vp.height);
+  if (!orig) { $("zVal").textContent = "-"; return; }
+  vctx.setTransform(dpr * view.scale, 0, 0, dpr * view.scale, dpr * view.tx, dpr * view.ty);
+  vctx.imageSmoothingEnabled = view.scale < 1;
+  vctx.imageSmoothingQuality = "high";
+  vctx.drawImage(compareHeld && origBitmap ? origBitmap : comp, 0, 0);
+  $("zVal").textContent = Math.round(view.scale * 100) + "%";
+}
+requestAnimationFrame(draw);
+
+function fitView() {
+  const r = stage.getBoundingClientRect();
+  const s = Math.min((r.width - 28) / W, (r.height - 28) / H, 1);
+  view.scale = Math.max(s, 0.02);
+  view.tx = (r.width - W * view.scale) / 2;
+  view.ty = (r.height - H * view.scale) / 2;
+  needsDraw = true;
+}
+function zoomAt(cssX, cssY, factor) {
+  const ns = Math.min(32, Math.max(0.02, view.scale * factor));
+  const k = ns / view.scale;
+  view.tx = cssX - (cssX - view.tx) * k;
+  view.ty = cssY - (cssY - view.ty) * k;
+  view.scale = ns;
+  needsDraw = true;
+}
+const toImage = (cssX, cssY) => [
+  Math.floor((cssX - view.tx) / view.scale),
+  Math.floor((cssY - view.ty) / view.scale),
+];
+
+// ── history (RLE so 30 steps don't eat RAM) ────────────────
+function packMask(m) {
+  const runs = [];
+  let i = 0;
+  while (i < m.length) {
+    const v = m[i];
+    let j = i + 1;
+    while (j < m.length && m[j] === v) j++;
+    runs.push(v, j - i);
+    i = j;
+    if (runs.length > m.length / 4) return { raw: m.slice() }; // runs cost 4 bytes each: raw is smaller past this point
+  }
+  return { rle: Uint32Array.from(runs) };
+}
+function unpackMask(s) {
+  if (s.raw) return s.raw.slice();
+  const m = new Uint8ClampedArray(W * H);
+  let p = 0;
+  for (let k = 0; k < s.rle.length; k += 2) { m.fill(s.rle[k], p, p + s.rle[k + 1]); p += s.rle[k + 1]; }
+  return m;
+}
+function snapshot() {
+  undoStack.push(packMask(mask));
+  if (undoStack.length > HIST_MAX) undoStack.shift();
+  const size = (x) => (x.raw ? x.raw.byteLength : x.rle.byteLength);
+  let bytes = undoStack.reduce((a, x) => a + size(x), 0);
+  while (undoStack.length > 1 && bytes > HIST_BYTES) bytes -= size(undoStack.shift());
+  redoStack.length = 0;
+  syncHistBtns();
+}
+function syncHistBtns() {
+  $("undo").disabled = !undoStack.length;
+  $("redo").disabled = !redoStack.length;
+}
+function doUndo() {
+  if (!undoStack.length) return;
+  redoStack.push(packMask(mask));
+  mask = unpackMask(undoStack.pop());
+  syncHistBtns(); compositeAll(); updateStats();
+}
+function doRedo() {
+  if (!redoStack.length) return;
+  undoStack.push(packMask(mask));
+  mask = unpackMask(redoStack.pop());
+  syncHistBtns(); compositeAll(); updateStats();
+}
+$("undo").addEventListener("click", doUndo);
+$("redo").addEventListener("click", doRedo);
+$("reset").addEventListener("click", () => {
+  if (!mask) return;
+  snapshot(); mask.fill(255); compositeAll(); updateStats();
+  toast("Back to the original");
+});
+
+// ── operations ─────────────────────────────────────────────
+const dist2 = (o, p, r, g, b) => {
+  const dr = o[p] - r, dg = o[p + 1] - g, db = o[p + 2] - b;
+  return dr * dr + dg * dg + db * db;
+};
+
+function wand(x, y) {
+  const o = orig.data;
+  const seed = (y * W + x) * 4;
+  const r = o[seed], g = o[seed + 1], b = o[seed + 2];
+  const t2 = Number($("tol").value) ** 2 * 3;
+  snapshot();
+  let bx0 = W, by0 = H, bx1 = -1, by1 = -1;
+  const stack = new Int32Array(W * H);
+  let sp = 0;
+  stack[sp++] = y * W + x;
+  const seen = new Uint8Array(W * H);
+  seen[y * W + x] = 1;
+  while (sp) {
+    const i = stack[--sp];
+    if (mask[i] === 0) continue;
+    if (dist2(o, i * 4, r, g, b) > t2) continue;
+    mask[i] = 0;
+    const px = i % W, py = (i / W) | 0;
+    if (px < bx0) bx0 = px; if (px > bx1) bx1 = px;
+    if (py < by0) by0 = py; if (py > by1) by1 = py;
+    if (px > 0 && !seen[i - 1]) { seen[i - 1] = 1; stack[sp++] = i - 1; }
+    if (px < W - 1 && !seen[i + 1]) { seen[i + 1] = 1; stack[sp++] = i + 1; }
+    if (py > 0 && !seen[i - W]) { seen[i - W] = 1; stack[sp++] = i - W; }
+    if (py < H - 1 && !seen[i + W]) { seen[i + W] = 1; stack[sp++] = i + W; }
+  }
+  if (bx1 >= 0) compositeAll([bx0, by0, bx1, by1]);
+  updateStats();
+}
+
+function removeColor(x, y) {
+  const o = orig.data;
+  const seed = (y * W + x) * 4;
+  const r = o[seed], g = o[seed + 1], b = o[seed + 2];
+  const t2 = Number($("tol").value) ** 2 * 3;
+  snapshot();
+  let bx0 = W, by0 = H, bx1 = -1, by1 = -1;
+  for (let i = 0; i < mask.length; i++) {
+    if (mask[i] !== 0 && dist2(o, i * 4, r, g, b) <= t2) {
+      mask[i] = 0;
+      const py = (i / W) | 0, px = i - py * W;
+      if (px < bx0) bx0 = px; if (px > bx1) bx1 = px;
+      if (py < by0) by0 = py; if (py > by1) by1 = py;
+    }
+  }
+  if (bx1 >= 0) compositeAll([bx0, by0, bx1, by1]);
+  updateStats();
+}
+
+// brush stamps along the stroke so fast moves leave no gaps
+let paintDirty = null, strokeBox = null;
+function stamp(x, y, r, value) {
+  const r2 = r * r;
+  const x0 = Math.max(0, Math.round(x - r)), x1 = Math.min(W - 1, Math.round(x + r));
+  const y0 = Math.max(0, Math.round(y - r)), y1 = Math.min(H - 1, Math.round(y + r));
+  for (let py = y0; py <= y1; py++) {
+    for (let px = x0; px <= x1; px++) {
+      const dx = px - x, dy = py - y;
+      if (dx * dx + dy * dy <= r2) mask[py * W + px] = value;
+    }
+  }
+  if (!paintDirty) paintDirty = [x0, y0, x1, y1];
+  else {
+    paintDirty[0] = Math.min(paintDirty[0], x0); paintDirty[1] = Math.min(paintDirty[1], y0);
+    paintDirty[2] = Math.max(paintDirty[2], x1); paintDirty[3] = Math.max(paintDirty[3], y1);
+  }
+}
+function strokeTo(x, y, value) {
+  const r = Number($("brush").value);
+  if (lastPt) {
+    const dx = x - lastPt[0], dy = y - lastPt[1];
+    const dist = Math.hypot(dx, dy);
+    const step = Math.max(1, r / 3);
+    for (let d = step; d < dist; d += step) stamp(lastPt[0] + (dx * d) / dist, lastPt[1] + (dy * d) / dist, r, value);
+  }
+  stamp(x, y, r, value);
+  lastPt = [x, y];
+  compositeRect(paintDirty[0], paintDirty[1], paintDirty[2], paintDirty[3]);
+  if (!strokeBox) strokeBox = paintDirty.slice();
+  else {
+    strokeBox[0] = Math.min(strokeBox[0], paintDirty[0]); strokeBox[1] = Math.min(strokeBox[1], paintDirty[1]);
+    strokeBox[2] = Math.max(strokeBox[2], paintDirty[2]); strokeBox[3] = Math.max(strokeBox[3], paintDirty[3]);
+  }
+  paintDirty = null;
+}
+
+// ── pointer handling ───────────────────────────────────────
+let painting = false, panning = false, lastPt = null, panFrom = null;
+vp.addEventListener("pointerdown", (ev) => {
+  if (!orig) return;
+  vp.setPointerCapture(ev.pointerId);
+  const css = [ev.offsetX, ev.offsetY];
+  if (spaceHeld || ev.button === 1) {
+    panning = true;
+    panFrom = [css[0] - view.tx, css[1] - view.ty];
+    return;
+  }
+  if (ev.button !== 0) return;
+  const [x, y] = toImage(css[0], css[1]);
+  if (x < 0 || y < 0 || x >= W || y >= H) return;
+  if (mode === "wand") return wand(x, y);
+  if (mode === "color") return removeColor(x, y);
+  painting = true;
+  lastPt = null;
+  strokeBox = null;
+  snapshot();
+  strokeTo(x, y, mode === "erase" ? 0 : 255);
+});
+vp.addEventListener("pointermove", (ev) => {
+  drawRing(ev.offsetX, ev.offsetY);
+  if (panning) {
+    view.tx = ev.offsetX - panFrom[0];
+    view.ty = ev.offsetY - panFrom[1];
+    needsDraw = true;
+    return;
+  }
+  if (!painting) return;
+  const [x, y] = toImage(ev.offsetX, ev.offsetY);
+  strokeTo(Math.min(W - 1, Math.max(0, x)), Math.min(H - 1, Math.max(0, y)), mode === "erase" ? 0 : 255);
+});
+function endStroke() {
+  if (painting) {
+    painting = false;
+    // reapply live edge controls over the whole image now the stroke is done
+    if (strokeBox && (Number($("feather").value) || Number($("morph").value))) compositeAll(strokeBox);
+    updateStats();
+  }
+  panning = false;
+}
+vp.addEventListener("pointerup", endStroke);
+vp.addEventListener("pointercancel", endStroke);
+vp.addEventListener("pointerleave", () => rctx.clearRect(0, 0, ring.width, ring.height));
+
+vp.addEventListener("wheel", (ev) => {
+  if (!orig) return;
+  ev.preventDefault();
+  // scale by the real delta: mouse notches (~100) stay ~1.13x, trackpads/pinch zoom smoothly
+  const dy = Math.max(-200, Math.min(200, ev.deltaY * (ev.deltaMode === 1 ? 16 : 1)));
+  zoomAt(ev.offsetX, ev.offsetY, Math.exp(-dy * (ev.ctrlKey ? 0.01 : 0.0012)));
+}, { passive: false });
+
+// brush ring cursor
+function drawRing(cssX, cssY) {
+  const dpr = window.devicePixelRatio || 1;
+  rctx.setTransform(1, 0, 0, 1, 0, 0);
+  rctx.clearRect(0, 0, ring.width, ring.height);
+  if (!orig || (mode !== "erase" && mode !== "restore") || spaceHeld) return;
+  const r = Number($("brush").value) * view.scale * dpr;
+  rctx.beginPath();
+  rctx.arc(cssX * dpr, cssY * dpr, r, 0, Math.PI * 2);
+  rctx.strokeStyle = mode === "erase" ? "rgba(242,73,92,.9)" : "rgba(115,191,105,.9)";
+  rctx.lineWidth = 1.5 * dpr;
+  rctx.stroke();
+  rctx.beginPath();
+  rctx.arc(cssX * dpr, cssY * dpr, r, 0, Math.PI * 2);
+  rctx.strokeStyle = "rgba(0,0,0,.5)";
+  rctx.lineWidth = 0.75 * dpr;
+  rctx.setLineDash([4, 4]);
+  rctx.stroke();
+  rctx.setLineDash([]);
+}
+
+// ── modes / sliders / bar ──────────────────────────────────
+function setMode(m) {
+  mode = m;
+  document.querySelectorAll(".mode").forEach((x) => {
+    const on = x.dataset.mode === m;
+    x.classList.toggle("on", on);
+    x.setAttribute("aria-pressed", on);
+  });
+  vp.style.cursor = m === "erase" || m === "restore" ? "none" : "crosshair";
+}
+document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+
+let edgeTimer = null;
+for (const [id, out] of [["tol", "tolV"], ["brush", "brushV"], ["feather", "featherV"], ["morph", "morphV"]]) {
+  $(id).addEventListener("input", () => {
+    $(out).textContent = $(id).value;
+    if ((id === "feather" || id === "morph") && orig) {
+      clearTimeout(edgeTimer);
+      edgeTimer = setTimeout(compositeAll, 90); // debounce the full recomposite
+    }
+  });
+}
+
+$("zIn").addEventListener("click", () => { const r = stage.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1.25); });
+$("zOut").addEventListener("click", () => { const r = stage.getBoundingClientRect(); zoomAt(r.width / 2, r.height / 2, 1 / 1.25); });
+$("zFit").addEventListener("click", () => orig && fitView());
+$("z100").addEventListener("click", () => {
+  if (!orig) return;
+  const r = stage.getBoundingClientRect();
+  const cx = (r.width / 2 - view.tx) / view.scale, cy = (r.height / 2 - view.ty) / view.scale;
+  view.scale = 1;
+  view.tx = r.width / 2 - cx; view.ty = r.height / 2 - cy;
+  needsDraw = true;
+});
+const BG_MODES = ["dark", "light", "solid"];
+let bgIdx = 0;
+$("bgTog").addEventListener("click", () => {
+  bgIdx = (bgIdx + 1) % BG_MODES.length;
+  const m = BG_MODES[bgIdx];
+  stage.classList.toggle("light", m === "light");
+  stage.classList.toggle("solid", m === "solid");
+  if (m === "solid") stage.style.backgroundColor = $("bgColor").value;
+  else stage.style.backgroundColor = "";
+  $("bgTog").textContent = m === "dark" ? "Light" : m === "light" ? "Color" : "Dark";
+});
+for (const [down, up] of [["pointerdown", "pointerup"], ["pointerleave", null]]) {
+  $("cmp").addEventListener(down, () => { compareHeld = down === "pointerdown"; needsDraw = true; });
+  if (up) $("cmp").addEventListener(up, () => { compareHeld = false; needsDraw = true; });
+}
+$("pick").addEventListener("click", () => $("file").click());
+
+// ── keyboard ───────────────────────────────────────────────
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.code === "Space") { spaceHeld = true; vp.classList.add("panning"); e.preventDefault(); return; }
+  if (e.ctrlKey || e.metaKey) {
+    if (e.key.toLowerCase() === "z") { e.preventDefault(); e.shiftKey ? doRedo() : doUndo(); }
+    if (e.key.toLowerCase() === "y") { e.preventDefault(); doRedo(); }
+    return;
+  }
+  const k = e.key.toLowerCase();
+  if (k === "w") setMode("wand");
+  else if (k === "c") setMode("color");
+  else if (k === "e") setMode("erase");
+  else if (k === "r") setMode("restore");
+  else if (k === "a") $("aiBtn").click();
+  else if (k === "f") orig && fitView();
+  else if (k === "1") $("z100").click();
+  else if (k === "x") { compareHeld = true; needsDraw = true; }
+  else if (k === "[") { $("brush").value = Math.max(3, Number($("brush").value) - 5); $("brushV").textContent = $("brush").value; }
+  else if (k === "]") { $("brush").value = Math.min(200, Number($("brush").value) + 5); $("brushV").textContent = $("brush").value; }
+});
+document.addEventListener("keyup", (e) => {
+  if (e.code === "Space") { spaceHeld = false; vp.classList.remove("panning"); }
+  if (e.key.toLowerCase() === "x") { compareHeld = false; needsDraw = true; }
+});
+
+// ── stats ──────────────────────────────────────────────────
+function updateStats() {
+  if (!mask) return;
+  let removed = 0;
+  for (let i = 0; i < mask.length; i++) if (mask[i] < 128) removed++;
+  $("pxStat").textContent = ((removed / mask.length) * 100).toFixed(1) + "% removed";
+  $("stats").innerHTML = `Output is <b>${W}×${H}</b> - original pixels, alpha only.`;
+}
+
+// ── loading ────────────────────────────────────────────────
+async function loadImage(src, name) {
+  const img = new Image();
+  img.onload = async () => {
+    W = img.naturalWidth; H = img.naturalHeight;
+    if (W * H > 32_000_000) { toast("Image too large (max ~32MP)"); return; }
+    comp.width = W; comp.height = H;
+    const off = document.createElement("canvas");
+    off.width = W; off.height = H;
+    const octx = off.getContext("2d", { willReadFrequently: true });
+    octx.drawImage(img, 0, 0);
+    orig = octx.getImageData(0, 0, W, H);
+    origBitmap = off;
+    mask = new Uint8ClampedArray(W * H).fill(255);
+    undoStack.length = 0; redoStack.length = 0;
+    baseName = (name || "image").replace(/\.[^.]+$/, "");
+    $("drop").hidden = true;
+    for (const id of ["dl", "reset", "copy", "aiBtn"]) $(id).disabled = false;
+    syncHistBtns();
+    $("dims").textContent = `${W} × ${H} px`;
+    sizeViewport();
+    fitView();
+    compositeAll();
+    updateStats();
+  };
+  img.onerror = () => toast("Couldn't read that image");
+  img.src = src;
+}
+function handleFile(f) {
+  if (!f || !f.type.startsWith("image/")) { toast("Not an image"); return; }
+  const rd = new FileReader();
+  rd.onload = () => loadImage(rd.result, f.name);
+  rd.readAsDataURL(f);
+}
+$("drop").addEventListener("click", () => $("file").click());
+$("file").addEventListener("change", () => handleFile($("file").files[0]));
+document.addEventListener("paste", (e) => {
+  for (const item of e.clipboardData?.items || []) {
+    if (item.type.startsWith("image/")) { handleFile(item.getAsFile()); return; }
+  }
+});
+for (const evName of ["dragover", "dragleave", "drop"]) {
+  stage.addEventListener(evName, (e) => {
+    e.preventDefault();
+    $("drop").classList.toggle("hover", evName === "dragover");
+    if (evName === "drop") handleFile(e.dataTransfer.files[0]);
+  });
+}
+new ResizeObserver(() => { sizeViewport(); }).observe(stage);
+
+// ── AI cutout (ONNX Runtime Web, all client-side) ─────────
+const ORT_URL = "vendor/ort/ort.min.js";
+const ORT_WASM = new URL("vendor/ort/", location.href).href;   // must end with "/"
+
+// Models are self-hosted (same origin); the Cache API keeps each one local after its
+// first download. "fast" ships with the repo (4.5 MB) and is the only one downloaded
+// by default. "hq" is OPTIONAL: add the file and set enabled:true to show a Quality
+// selector (README: "Optional: high quality model"). The url may also point to your own
+// storage/CDN (it must then send CORS headers).
+const HQ_MODEL = { enabled: false, url: "vendor/models/isnet-q8.onnx" };
+const AI_MODELS = {
+  fast: { urls: [new URL("vendor/models/u2netp.onnx", location.href).href],
+          size: 320, mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225], session: null },       // U2-Net-P
+  hq:   { urls: [new URL(HQ_MODEL.url, location.href).href],
+          size: 1024, mean: [0.5, 0.5, 0.5], std: [1, 1, 1], session: null },                      // IS-Net, uint8-quantized
+};
+$("aiQRow").hidden = !HQ_MODEL.enabled;
+
+function busy(txt, pct) {
+  $("busy").classList.add("show");
+  $("busyTxt").textContent = txt;
+  $("busyPct").textContent = pct || "";
+}
+const busyOff = () => $("busy").classList.remove("show");
+
+function loadScript(src) {
+  return new Promise((ok, bad) => {
+    const s = document.createElement("script");
+    s.src = src; s.onload = ok; s.onerror = () => bad(new Error("script load failed"));
+    document.head.appendChild(s);
+  });
+}
+
+async function fetchModel(urls) {
+  const cache = await caches.open("hv-removebg").catch(() => null);
+  for (const url of urls) {
+    try {
+      if (cache) {
+        const hit = await cache.match(url);
+        if (hit) return await hit.arrayBuffer();
+      }
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const total = Number(res.headers.get("content-length")) || 0;
+      const reader = res.body.getReader();
+      const chunks = [];
+      let got = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        got += value.length;
+        const mb = (n) => (n / 1048576).toFixed(1);
+        busy("Downloading AI model (once ever)", total ? `${mb(got)} / ${mb(total)} MB` : `${mb(got)} MB`);
+      }
+      const blob = new Blob(chunks);
+      if (cache) await cache.put(url, new Response(blob)).catch(() => {});
+      return await blob.arrayBuffer();
+    } catch (e) { console.warn("Model fetch failed:", url, e); }
+  }
+  throw new Error("model unreachable");
+}
+
+async function ensureAI(key) {
+  const M = AI_MODELS[key];
+  if (M.session) return M;
+  if (!window.ort) {
+    busy("Loading AI runtime…");
+    await loadScript(ORT_URL);
+    ort.env.wasm.wasmPaths = ORT_WASM;
+    ort.env.wasm.numThreads = 1; // no cross-origin isolation on this page
+    ort.env.wasm.proxy = true;   // run inference in a worker so the page stays responsive
+  }
+  const buf = await fetchModel(M.urls);
+  busy("Preparing the model…");
+  M.session = await ort.InferenceSession.create(buf, { executionProviders: ["wasm"] });
+  return M;
+}
+
+// bilinear-upscale a size x size alpha-only canvas to w x h; returns the alpha bytes
+function upscaleAlpha(srcCanvas, w, h) {
+  const up = document.createElement("canvas");
+  up.width = w; up.height = h;
+  const uctx = up.getContext("2d", { willReadFrequently: true });
+  uctx.imageSmoothingEnabled = true;
+  uctx.imageSmoothingQuality = "high";
+  uctx.drawImage(srcCanvas, 0, 0, w, h);
+  const px = uctx.getImageData(0, 0, w, h).data;
+  const a = new Uint8ClampedArray(w * h);
+  for (let i = 0; i < a.length; i++) a[i] = px[i * 4 + 3];
+  return a;
+}
+
+// ── edge sharpening (fast guided filter) ───────────────────
+// The network's matte is low-res (320 px for "fast"), so stretching it over the photo
+// leaves a soft halo. A guided filter re-fits the matte to the photo's own edges.
+// Statistics are computed at <=1200 px and applied at full resolution, so cost and
+// memory stay small even on huge images.
+function boxFilter(src, w, h, r) {  // mean over a (2r+1)^2 window, edge-clamped, O(n)
+  const tmp = new Float32Array(w * h), out = new Float32Array(w * h);
+  const div = 2 * r + 1;
+  for (let y = 0; y < h; y++) {
+    const row = y * w;
+    let acc = 0;
+    for (let x = -r; x <= r; x++) acc += src[row + Math.min(w - 1, Math.max(0, x))];
+    for (let x = 0; x < w; x++) {
+      tmp[row + x] = acc / div;
+      acc += src[row + Math.min(w - 1, x + r + 1)] - src[row + Math.max(0, x - r)];
+    }
+  }
+  for (let x = 0; x < w; x++) {
+    let acc = 0;
+    for (let y = -r; y <= r; y++) acc += tmp[Math.min(h - 1, Math.max(0, y)) * w + x];
+    for (let y = 0; y < h; y++) {
+      out[y * w + x] = acc / div;
+      acc += tmp[Math.min(h - 1, y + r + 1) * w + x] - tmp[Math.max(0, y - r) * w + x];
+    }
+  }
+  return out;
+}
+
+function guidedAB(I, p, w, h, r, eps) {
+  const n = w * h, a = new Float32Array(n), b = new Float32Array(n);
+  const Ip = new Float32Array(n), II = new Float32Array(n);
+  for (let i = 0; i < n; i++) { Ip[i] = I[i] * p[i]; II[i] = I[i] * I[i]; }
+  const mI = boxFilter(I, w, h, r), mp = boxFilter(p, w, h, r);
+  const mIp = boxFilter(Ip, w, h, r), mII = boxFilter(II, w, h, r);
+  for (let i = 0; i < n; i++) {
+    const ai = (mIp[i] - mI[i] * mp[i]) / (mII[i] - mI[i] * mI[i] + eps);
+    a[i] = ai; b[i] = mp[i] - ai * mI[i];
+  }
+  return { a: boxFilter(a, w, h, r), b: boxFilter(b, w, h, r) };
+}
+
+// matteLow: Float32Array (lw x lh, 0..1). Writes the refined full-resolution result into `mask`.
+function refineIntoMask(matteLow, lw, lh) {
+  const gc = document.createElement("canvas");
+  gc.width = lw; gc.height = lh;
+  const gctx = gc.getContext("2d", { willReadFrequently: true });
+  gctx.imageSmoothingQuality = "high";
+  gctx.drawImage(origBitmap, 0, 0, lw, lh);
+  const gd = gctx.getImageData(0, 0, lw, lh).data;
+  const I = new Float32Array(lw * lh);
+  for (let i = 0; i < I.length; i++) I[i] = (0.299 * gd[i * 4] + 0.587 * gd[i * 4 + 1] + 0.114 * gd[i * 4 + 2]) / 255;
+  const r = Math.max(4, Math.round(0.012 * Math.max(lw, lh)));
+  const { a, b } = guidedAB(I, matteLow, lw, lh, r, 1e-3);
+
+  // apply at full resolution: q = a*I + b, with a and b sampled bilinearly
+  const o = orig.data, sx = lw / W, sy = lh / H;
+  const x0 = new Int32Array(W), x1 = new Int32Array(W), xw = new Float32Array(W);
+  for (let x = 0; x < W; x++) {
+    const fx = Math.min(lw - 1, Math.max(0, (x + 0.5) * sx - 0.5));
+    x0[x] = Math.floor(fx); x1[x] = Math.min(lw - 1, x0[x] + 1); xw[x] = fx - x0[x];
+  }
+  for (let y = 0; y < H; y++) {
+    const fy = Math.min(lh - 1, Math.max(0, (y + 0.5) * sy - 0.5));
+    const y0 = Math.floor(fy), y1 = Math.min(lh - 1, y0 + 1), wy = fy - y0;
+    const r0 = y0 * lw, r1 = y1 * lw;
+    for (let x = 0; x < W; x++) {
+      const fx = xw[x];
+      const w00 = (1 - fx) * (1 - wy), w10 = fx * (1 - wy), w01 = (1 - fx) * wy, w11 = fx * wy;
+      const i00 = r0 + x0[x], i10 = r0 + x1[x], i01 = r1 + x0[x], i11 = r1 + x1[x];
+      const A = a[i00] * w00 + a[i10] * w10 + a[i01] * w01 + a[i11] * w11;
+      const B = b[i00] * w00 + b[i10] * w10 + b[i01] * w01 + b[i11] * w11;
+      const p = (y * W + x) * 4;
+      const g = (0.299 * o[p] + 0.587 * o[p + 1] + 0.114 * o[p + 2]) / 255;
+      mask[y * W + x] = ((A * g + B - 0.5) * 1.6 + 0.5) * 255;   // Uint8ClampedArray clamps to 0..255
+    }
+  }
+}
+
+async function aiCut() {
+  if (!orig) return;
+  const key = HQ_MODEL.enabled && $("aiQuality").value === "hq" ? "hq" : "fast";
+  try {
+    const M = await ensureAI(key);
+    busy(key === "hq" ? "Finding the subject (high quality - this takes a while)…" : "Finding the subject…");
+    await new Promise((r) => setTimeout(r, 30)); // let the overlay paint
+
+    // preprocess: size x size, normalized the way the model was trained
+    const S = M.size;
+    const pre = document.createElement("canvas");
+    pre.width = S; pre.height = S;
+    const pctx = pre.getContext("2d", { willReadFrequently: true });
+    pctx.drawImage(origBitmap, 0, 0, S, S);
+    const px = pctx.getImageData(0, 0, S, S).data;
+    const input = new Float32Array(3 * S * S);
+    for (let i = 0; i < S * S; i++) {
+      input[i] = (px[i * 4] / 255 - M.mean[0]) / M.std[0];
+      input[S * S + i] = (px[i * 4 + 1] / 255 - M.mean[1]) / M.std[1];
+      input[2 * S * S + i] = (px[i * 4 + 2] / 255 - M.mean[2]) / M.std[2];
+    }
+    const feeds = {};
+    feeds[M.session.inputNames[0]] = new ort.Tensor("float32", input, [1, 3, S, S]);
+    const out = await M.session.run(feeds);
+    const matte = out[M.session.outputNames[0]].data; // [1,1,S,S]
+
+    // min-max normalize into the canvas alpha channel
+    let mi = Infinity, ma = -Infinity;
+    for (let i = 0; i < S * S; i++) { if (matte[i] < mi) mi = matte[i]; if (matte[i] > ma) ma = matte[i]; }
+    const range = ma - mi || 1;
+    const small = pctx.createImageData(S, S);
+    for (let i = 0; i < S * S; i++) small.data[i * 4 + 3] = Math.round(((matte[i] - mi) / range) * 255);
+    pctx.putImageData(small, 0, 0);
+
+    if ($("aiRefine").checked) {
+      busy("Sharpening edges…");
+      await new Promise((r) => setTimeout(r, 30));
+      const k = Math.min(1, 1200 / Math.max(W, H));
+      const lw = Math.max(1, Math.round(W * k)), lh = Math.max(1, Math.round(H * k));
+      const low = upscaleAlpha(pre, lw, lh);
+      const matteLow = new Float32Array(lw * lh);
+      for (let i = 0; i < matteLow.length; i++) matteLow[i] = low[i] / 255;
+      snapshot();
+      refineIntoMask(matteLow, lw, lh);
+    } else {
+      const scaled = upscaleAlpha(pre, W, H);   // plain bilinear upscale
+      snapshot();
+      mask.set(scaled);
+    }
+    compositeAll();
+    updateStats();
+    busyOff();
+    toast("AI cutout done - touch up with the brushes if needed");
+  } catch (e) {
+    console.error("AI cutout failed:", e);
+    busyOff();
+    toast(e.message === "model unreachable" ? "Couldn't load the AI model file - check vendor/models/" : "AI unavailable (offline?) - the manual tools still work");
+  }
+}
+$("aiBtn").addEventListener("click", aiCut);
+
+// ── export ─────────────────────────────────────────────────
+$("bgSel").addEventListener("change", () => { $("bgColor").hidden = $("bgSel").value !== "color"; });
+$("fmt").addEventListener("change", () => {
+  if ($("fmt").value === "jpeg" && $("bgSel").value === "transparent") {
+    $("bgSel").value = "color";
+    $("bgColor").hidden = false;
+    toast("JPG can't hold transparency - background set to a color");
+  }
+});
+
+function contentBox() {
+  const a = cctx.getImageData(0, 0, W, H).data;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      if (a[(y * W + x) * 4 + 3] > 0) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  return x1 < 0 ? [0, 0, W, H] : [x0, y0, x1 - x0 + 1, y1 - y0 + 1];
+}
+
+function exportCanvas() {
+  const [sx, sy, sw, sh] = $("trim").checked ? contentBox() : [0, 0, W, H];
+  const ex = document.createElement("canvas");
+  ex.width = sw; ex.height = sh;
+  const ectx = ex.getContext("2d");
+  if ($("bgSel").value === "color" || $("fmt").value === "jpeg") {
+    ectx.fillStyle = $("bgColor").value;
+    ectx.fillRect(0, 0, sw, sh);
+  }
+  ectx.drawImage(comp, sx, sy, sw, sh, 0, 0, sw, sh);
+  return { ex, sw, sh };
+}
+
+$("dl").addEventListener("click", () => {
+  if (!orig) return;
+  const fmt = $("fmt").value;
+  const mime = "image/" + fmt;
+  const { ex, sw, sh } = exportCanvas();
+  ex.toBlob((blob) => {
+    if (!blob) { toast("Export failed"); return; }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${baseName}-nobg.${fmt === "jpeg" ? "jpg" : fmt}`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+    toast(`${fmt.toUpperCase()} downloaded - ${sw}×${sh}`);
+  }, mime, fmt === "png" ? undefined : 0.95);
+});
+
+$("copy").addEventListener("click", async () => {
+  if (!orig) return;
+  try {
+    const { ex } = exportCanvas();
+    const blob = await new Promise((r) => ex.toBlob(r, "image/png"));
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+    toast("Copied as PNG - paste it anywhere");
+  } catch (e) { console.warn("Clipboard write failed:", e); toast("Clipboard blocked by the browser - use Download"); }
+});
+</script>
+</body>
+</html>
